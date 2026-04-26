@@ -25,13 +25,30 @@
     - pulls/list
     - pulls/get
     - pulls/create
+    - pulls/list-files
+    - pulls/list-commits
+    - pulls/list-reviews
+    - pulls/list-review-comments
+    - pulls/merge
     # Repositories
     - repos/get
     - repos/list-for-user
+    - repos/list-for-authenticated-user
     - repos/list-commits
+    - repos/list-branches
+    - repos/list-tags
+    - repos/list-contributors
+    - repos/list-releases
+    - repos/get-latest-release
+    - repos/get-readme
+    - repos/get-content
+    # Gists
+    - gists/list-for-user
     # Users
     - users/get-by-username
+    - users/get-authenticated
     # Search
     - search/issues-and-pull-requests
     - search/users
     - search/repos
+    - search/code
