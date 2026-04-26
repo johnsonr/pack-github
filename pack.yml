@@ -1,0 +1,9 @@
+name: github-openapi
+description: "GitHub via the official OpenAPI 3 spec — gives the LLM full request AND response types so it doesn't have to guess pagination shape, field names, or wrapper-vs-array. Alternative to the MCP-backed `github` pack."
+version: 0.1.0
+author: Rod Johnson
+url: https://github.com/johnsonr/pack-github-openapi
+tags:
+  - integrations
+  - developer-tools
+  - openapi

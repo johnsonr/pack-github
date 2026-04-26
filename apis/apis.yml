@@ -1,0 +1,23 @@
+# GitHub OpenAPI 3 spec — official, lives in github/rest-api-description.
+# Tagged subset surfaced as tools: just the categories that cover ~95% of
+# user-facing chat tasks (issues, pulls, repos, users, search). Drop more
+# tags here if a request needs them. Other tags GitHub ships: actions,
+# apps, billing, checks, code-scanning, codespaces, dependabot, gists,
+# git, gitignore, interactions, licenses, markdown, meta, migrations,
+# orgs, packages, projects, rate-limit, reactions, secret-scanning,
+# teams, webhooks.
+#
+# Auth via GITHUB_PERSONAL_ACCESS_TOKEN env var or credential store —
+# same convention as the MCP github pack so existing tokens work.
+# Fine-grained PATs and classic PATs both accept Bearer.
+- url: "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+  name: gh
+  type: openapi
+  auth: bearer
+  token-env: GITHUB_PERSONAL_ACCESS_TOKEN
+  tags:
+    - issues
+    - pulls
+    - repos
+    - users
+    - search
