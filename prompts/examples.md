@@ -22,10 +22,13 @@ before writing the script. Same data, fewer iterations.
 
 ## Common patterns
 
+Method names are camelCased from the OpenAPI operationId — `issues/list-for-repo`
+becomes `gateway.gh.issuesListForRepo`. Read `interfaces.ts` for the exact shape.
+
 List the most recent issues in a repo:
 
 ```javascript
-const r = await gateway.gh.issues_list_for_repo({
+const r = await gateway.gh.issuesListForRepo({
   owner: "embabel",
   repo: "embabel-agent",
   state: "open",
@@ -41,7 +44,7 @@ Top-N issue creators (paginated):
 ```javascript
 let all = [];
 for (let page = 1; page <= 10; page++) {
-  const r = await gateway.gh.issues_list_for_repo({
+  const r = await gateway.gh.issuesListForRepo({
     owner: "embabel",
     repo: "embabel-agent",
     state: "all",
@@ -61,14 +64,14 @@ console.log(JSON.stringify(top));
 Lookup a user:
 
 ```javascript
-const u = await gateway.gh.users_get_by_username({ username: "johnsonr" });
+const u = await gateway.gh.usersGetByUsername({ username: "johnsonr" });
 console.log(`${u.name} (${u.login}) — ${u.bio}`);
 ```
 
 Create an issue:
 
 ```javascript
-const i = await gateway.gh.issues_create({
+const i = await gateway.gh.issuesCreate({
   owner: "embabel",
   repo: "assistant",
   title: "...",
