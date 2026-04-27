@@ -5,97 +5,37 @@ description: GitHub workflows — listing/searching/creating issues and PRs, loo
 
 # GitHub Workflows
 
-Operational guide when the user asks about anything on GitHub. Activating
-this skill replaces guesswork about pagination, field names, response
-shapes, and rate limits with concrete patterns.
+## Namespaces
 
-## Read this first — naming convention
+Calls go through `gateway.<ns>.<method>(args)` from inside `execute_javascript`
+or `execute_python`. Never call them as top-level tools.
 
-The workspace exposes GitHub via two namespaces, both reached as
-`gateway.<namespace>.<method>(args)` from inside `execute_javascript` or
-`execute_python`. **Never call them as top-level tools.**
-
-| Namespace | When to use |
+| Namespace | Notes |
 |---|---|
-| `gateway.gh.*` | OpenAPI-typed. **Method names are camelCase**: `issuesListForRepo`, `issuesGet`, `usersGetByUsername`. The TYPED API SURFACE shows exact request/response shapes. **Prefer this namespace.** |
-| `gateway.github.*` | MCP-backed fallback. Use only if `gh` is not installed. Response types may be `unknown`, requiring an exploratory call. |
+| `gateway.gh.*` | OpenAPI-typed. **Prefer this.** Methods are **camelCase** (`issuesListForRepo`, `usersGetByUsername`). TYPED API SURFACE has the exact shapes; full file at `/workspace/interfaces.ts`. |
+| `gateway.github.*` | MCP fallback. Untyped responses — only if `gh` isn't installed. |
 
-**Cardinal naming rule for `gateway.gh.*`:**
-- **Method** = camelCase (`issuesListForRepo`, NOT `issues_list_for_repo`)
-- **Arguments** = snake_case where GitHub's REST API uses snake_case
-  (`per_page`, `issue_number`, `pull_number`, `q`)
+**Naming**: method is camelCase, args are snake_case (`per_page`, `issue_number`, `pull_number`, `q`).
+If a call returns `gateway.gh.foo is not a workspace tool`, the error lists every valid method — pick from it. Never re-send the same call.
 
-If a call returns `Error: gateway.gh.foo is not a workspace tool`, the
-error message lists every available method. **Read it.** Don't re-issue
-the same call — pick a method from the list. A second identical call is
-always wrong.
+## Cardinal rules
 
-To see the full surface inline: `bash_run "cat /workspace/interfaces.ts"`.
+1. **Don't fabricate.** Issue numbers, SHAs, usernames, URLs — every one comes from a tool result.
+2. **`owner` and `repo` always required.** No "current repo" default.
+3. **Cap pagination.** Default to 1–3 pages of `per_page: 100`; stop early.
+4. **Render every linkable thing as a markdown link** using the response's `html_url` field.
 
-## The cardinal rules
+## Counting (how many / total / top-N)
 
-1. **Don't fabricate identifiers.** Issue numbers, PR numbers, commit
-   SHAs, usernames, repo names, URLs — every one must come from a tool
-   result. If you don't have it, fetch it. If you can't fetch it, say so.
-2. **Always pass `owner` and `repo` explicitly.** Never assume a
-   "current" repo — there isn't one. Ask the user if they didn't say.
-3. **Cap pagination.** GitHub will happily serve 10,000 issues if you
-   ask. Default to the first 1–3 pages of `per_page: 100` and stop early
-   when you have enough.
-4. **Render every linkable thing as a link.** Issue numbers, PR numbers,
-   commits, repos, users — wrap in `<a href="...">` using the `html_url`
-   field where available.
-
-## Pattern: list issues / PRs
+For any **"how many"**, **"count"**, **"number of"**, or **"top N raisers/authors/labels"** question, use search and read `total_count`. **Do not** list-then-`.length` — `issuesListForRepo` caps at 100/page so the count is wrong on any large repo, and the payload wastes context.
 
 ```javascript
-const r = await gateway.gh.issuesListForRepo({
-  owner: "embabel",
-  repo: "embabel-agent",
-  state: "open",          // open | closed | all
-  sort: "created",        // created | updated | comments
-  direction: "desc",
-  per_page: 30,
-});
-// r is a bare array — each item has: number, title, state, user.login,
-// html_url, created_at, updated_at, labels[], assignees[].
-console.log(r.map(i => `#${i.number} ${i.title}`).join("\n"));
-```
-
-**PRs are issues** in the GitHub API. `issuesListForRepo` returns both;
-filter with `i.pull_request !== undefined` for PRs only, or use
-`pullsList` if you only want PRs.
-
-## Pattern: get a single issue / PR
-
-If the user gives a number, fetch it directly — don't list-and-filter:
-
-```javascript
-const i = await gateway.gh.issuesGet({
-  owner: "embabel", repo: "assistant", issue_number: 42,
-});
-```
-
-## Pattern: counting (how many issues / PRs / hits)
-
-Whenever the user asks **"how many"**, **"count"**, **"number of"**, or
-**"top N raisers/authors/labels"**, do NOT enumerate the list and
-`.length` the result — that pulls back kilobytes per item, blows the
-context, and is wrong on any repo with > 30 issues (default page size).
-
-**Use `searchIssuesAndPullRequests` and read `total_count`:**
-
-```javascript
-// "How many open issues in embabel/embabel-agent?"
 const r = await gateway.gh.searchIssuesAndPullRequests({
   q: "repo:embabel/embabel-agent is:issue is:open",
-  per_page: 1,            // we only want the count, not the items
+  per_page: 1,            // count-only — items not needed
 });
 console.log(`Open issues: ${r.total_count}`);
 ```
-
-The `q` is a [GitHub search query](https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests).
-Common count queries:
 
 | Question | `q` |
 |---|---|
@@ -104,133 +44,93 @@ Common count queries:
 | open PRs in repo | `repo:owner/name is:pr is:open` |
 | issues by author | `repo:owner/name author:login` |
 | issues with label | `repo:owner/name label:bug is:open` |
-| repos owned by user | `user:login` (use `searchRepos` instead) |
 
-**Never** call `issuesListForRepo` to count — it caps at 100 per page,
-so for any repo with > 100 issues you get the wrong answer AND waste
-tokens.
+For top-N-by-author / top-N-by-label, paginate the same `searchIssuesAndPullRequests` call and aggregate client-side — its per-item shape is much smaller than `issuesListForRepo`.
 
-For top-N-by-author / top-N-by-label questions, do search-then-aggregate
-client-side: paginate the search until exhausted, then group in JS. Even
-this beats `issuesListForRepo` because search returns a far smaller
-per-item shape.
+## Listing issues / PRs
 
-## Pattern: search-then-get
+```javascript
+const r = await gateway.gh.issuesListForRepo({
+  owner, repo,
+  state: "open",          // open | closed | all   (default: open)
+  sort: "created",        // created | updated | comments
+  direction: "desc",
+  per_page: 30,
+});
+// r is a bare array. Each item: number, title, state, user.login, html_url,
+// created_at, updated_at, labels[], assignees[]. PRs are also returned —
+// filter with `i.pull_request !== undefined` for PRs only, or use pullsList.
+```
 
-For "find issues mentioning X" or "what's been said about Y", use
-`searchIssuesAndPullRequests` first, then `issuesGet` on the hits you
-need full details for. Search returns a wrapped object:
-`{ total_count, items, incomplete_results }`.
+If the user gives a number, fetch directly — don't list-and-filter:
+```javascript
+await gateway.gh.issuesGet({ owner, repo, issue_number: 42 });
+```
+
+## Searching content
+
+Search returns `{ total_count, items, incomplete_results }` — **not** a bare array.
 
 ```javascript
 const s = await gateway.gh.searchIssuesAndPullRequests({
   q: "repo:embabel/embabel-agent state:open label:bug pagination",
   per_page: 10,
 });
-console.log(`${s.total_count} hits`);
-for (const hit of s.items) {
-  console.log(`#${hit.number} ${hit.title} — ${hit.html_url}`);
-}
+for (const hit of s.items) console.log(`#${hit.number} ${hit.title} — ${hit.html_url}`);
 ```
 
-Search query operators worth knowing:
-`repo:owner/name`, `org:owner`, `user:login`, `is:open|closed|merged`,
-`state:open|closed`, `label:foo`, `author:login`, `assignee:login`,
-`mentions:login`, `created:>2025-01-01`, `updated:<2026-01-01`,
-`in:title`, `in:body`.
+Useful operators: `repo:`, `org:`, `user:`, `is:open|closed|merged`, `state:`, `label:`, `author:`, `assignee:`, `mentions:`, `created:>2025-01-01`, `updated:<2026-01-01`, `in:title`, `in:body`.
 
-## Pattern: paginate safely
+## Paginating safely
 
 ```javascript
 let all = [];
-const MAX_PAGES = 3;        // hard cap — raise consciously
-for (let page = 1; page <= MAX_PAGES; page++) {
-  const r = await gateway.gh.issuesListForRepo({
-    owner: "embabel", repo: "embabel-agent",
-    state: "all", per_page: 100, page,
-  });
-  if (!r || r.length === 0) break;       // empty page → done
+for (let page = 1; page <= 3; page++) {                // hard cap
+  const r = await gateway.gh.issuesListForRepo({ owner, repo, state: "all", per_page: 100, page });
+  if (!r || r.length === 0) break;                     // empty page → done
   all.push(...r);
-  if (r.length < 100) break;             // partial page → last page
+  if (r.length < 100) break;                           // partial page → last page
 }
 ```
 
-Always have BOTH break conditions. The `r.length < 100` check is the one
-people forget; without it you waste one extra request per run.
+Both break conditions are required. Without `r.length < 100` you waste one extra request.
 
-## Pattern: look up a user
+## Users and repos
 
 ```javascript
-const u = await gateway.gh.usersGetByUsername({ username: "johnsonr" });
-console.log(`${u.name || u.login} — ${u.bio || "(no bio)"} — ${u.html_url}`);
+await gateway.gh.usersGetByUsername({ username: "johnsonr" });
+// fields: login, name, bio, company, blog, location, public_repos, followers, html_url, avatar_url
+
+await gateway.gh.usersGetAuthenticated();              // no args — current user
+
+await gateway.gh.reposGet({ owner, repo });            // metadata
+await gateway.gh.reposGetReadme({ owner, repo });
+await gateway.gh.reposGetLatestRelease({ owner, repo });
+await gateway.gh.reposListForUser({ username });
+await gateway.gh.reposListForAuthenticatedUser({ per_page: 100 });
 ```
 
-Useful fields: `login`, `name`, `bio`, `company`, `blog`, `location`,
-`public_repos`, `followers`, `html_url`, `avatar_url`.
+## Writing — issues and comments
 
-For the authenticated user: `usersGetAuthenticated()` (no args).
-
-## Pattern: create an issue
+Confirm with the user first; both are publicly visible.
 
 ```javascript
 const i = await gateway.gh.issuesCreate({
-  owner: "embabel", repo: "assistant",
+  owner, repo,
   title: "Short imperative title",
   body: "## Context\n…\n## Repro\n…\n## Expected\n…",
   labels: ["bug"],
 });
-console.log(`Created #${i.number}: ${i.html_url}`);
+
+await gateway.gh.issuesCreateComment({ owner, repo, issue_number: 42, body: "…" });
 ```
 
-Don't create issues without confirming the user actually wants one
-created — issue creation is visible to other people.
+## Pitfalls
 
-## Pattern: comment on an issue / PR
-
-```javascript
-await gateway.gh.issuesCreateComment({
-  owner: "embabel", repo: "assistant", issue_number: 42,
-  body: "Comment markdown here.",
-});
-```
-
-## Pattern: repository metadata
-
-```javascript
-const repo = await gateway.gh.reposGet({ owner: "embabel", repo: "assistant" });
-const readme = await gateway.gh.reposGetReadme({ owner: "embabel", repo: "assistant" });
-const release = await gateway.gh.reposGetLatestRelease({ owner: "embabel", repo: "assistant" });
-```
-
-For listing repos under a user: `reposListForUser({ username: "johnsonr" })`.
-For your own: `reposListForAuthenticatedUser({ per_page: 100 })`.
-
-## Common pitfalls
-
-- **camelCase methods, snake_case args**: `issuesListForRepo({ per_page: 30 })`
-  — the method is camelCase, the arg is snake_case. Most "not a workspace
-  tool" errors come from method names written as snake_case.
-- **Don't repeat a failed call.** If a method name is wrong, the error
-  lists every valid method. Pick from the list; never re-send the same
-  call.
-- **Wrong field name on user**: it's `i.user.login`, not `i.author.login`.
-- **Wrong shape on search**: search endpoints return
-  `{ total_count, items }`, not a bare array. Listing endpoints return a
-  bare array.
-- **`q` vs `query`**: search uses `q`, not `query`.
-- **`per_page` max is 100**: anything above 100 is silently capped.
-- **No "current repo" default**: every call needs `owner` and `repo`.
-- **Empty `state` defaults to `open`**: pass `state: "all"` if you want
-  closed too.
-- **Token rate limits**: 5,000 requests/hour authenticated. If a script
-  needs >100 calls, ask the user to confirm the scope first.
-- **Search has a smaller rate limit**: 30 req/min. Don't loop search; do
-  one query and refine it.
-
-## When NOT to use this skill
-
-- General "what is git" / "how do I rebase" questions — that's
-  documentation, not the API.
-- Questions about a LOCAL git repository — use `bash_run` with `git`.
-- "Build me a dashboard for GitHub data" — call the app builder tool;
-  it fetches data itself through the same gateway.
+- Method names are **camelCase**; arg names are **snake_case**. Most "not a workspace tool" errors come from snake_case method names.
+- Search uses **`q`**, not `query`.
+- Search returns `{ total_count, items }`; listings return a bare array.
+- Field is **`i.user.login`**, not `i.author.login`.
+- `per_page` silently caps at 100.
+- `state` defaults to `open` — pass `"all"` to include closed.
+- Auth limit: 5,000 req/h; **search limit: 30 req/min** — never loop a search.
