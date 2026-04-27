@@ -76,6 +76,45 @@ const i = await gateway.gh.issuesGet({
 });
 ```
 
+## Pattern: counting (how many issues / PRs / hits)
+
+Whenever the user asks **"how many"**, **"count"**, **"number of"**, or
+**"top N raisers/authors/labels"**, do NOT enumerate the list and
+`.length` the result — that pulls back kilobytes per item, blows the
+context, and is wrong on any repo with > 30 issues (default page size).
+
+**Use `searchIssuesAndPullRequests` and read `total_count`:**
+
+```javascript
+// "How many open issues in embabel/embabel-agent?"
+const r = await gateway.gh.searchIssuesAndPullRequests({
+  q: "repo:embabel/embabel-agent is:issue is:open",
+  per_page: 1,            // we only want the count, not the items
+});
+console.log(`Open issues: ${r.total_count}`);
+```
+
+The `q` is a [GitHub search query](https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests).
+Common count queries:
+
+| Question | `q` |
+|---|---|
+| open issues in repo | `repo:owner/name is:issue is:open` |
+| closed issues in repo | `repo:owner/name is:issue is:closed` |
+| open PRs in repo | `repo:owner/name is:pr is:open` |
+| issues by author | `repo:owner/name author:login` |
+| issues with label | `repo:owner/name label:bug is:open` |
+| repos owned by user | `user:login` (use `searchRepos` instead) |
+
+**Never** call `issuesListForRepo` to count — it caps at 100 per page,
+so for any repo with > 100 issues you get the wrong answer AND waste
+tokens.
+
+For top-N-by-author / top-N-by-label questions, do search-then-aggregate
+client-side: paginate the search until exhausted, then group in JS. Even
+this beats `issuesListForRepo` because search returns a far smaller
+per-item shape.
+
 ## Pattern: search-then-get
 
 For "find issues mentioning X" or "what's been said about Y", use
