@@ -1,19 +1,17 @@
-# pack-github-openapi
+# pack-github
 
 GitHub via the official OpenAPI 3 spec — gives the LLM full request **and**
 response types so it doesn't have to guess pagination shape, field names,
-or wrapper-vs-array. Alternative to the MCP-backed `pack-github`.
+or wrapper-vs-array.
 
 ## Why
 
-The MCP `github-mcp-server` exposes ~38 hand-rolled tools with argument
-schemas only — response types are `unknown`. The LLM has to shape-probe
-on every call. Common failures observed in production traces:
+Untyped GitHub tooling forces the LLM to shape-probe on every call.
+Common failures observed in production traces:
 
 - `.forEach` on the listIssues result (it's `{issues, totalCount, pageInfo}`,
   not a bare array)
 - `i.user.login` vs `i.author.login` field-name guessing
-- `after: null` rejected by MCP (expected `string | undefined`)
 - `q` vs `query` argument-name confusion
 
 This pack reads the canonical GitHub OpenAPI 3 spec from
@@ -23,8 +21,7 @@ including pagination wrappers and response field names.
 
 ## Namespace
 
-Methods land under `gateway.gh` (not `gateway.github`, to avoid colliding
-with the MCP pack if both are installed). E.g.:
+Methods land under `gateway.gh`. E.g.:
 
 - `gateway.gh.issues_list_for_repo({owner, repo, ...})`
 - `gateway.gh.users_get_by_username({username})`
@@ -35,7 +32,7 @@ See `prompts/examples.md` for usage patterns.
 
 ## Auth
 
-Same as MCP: set `GITHUB_PERSONAL_ACCESS_TOKEN` in the credential store or
+Set `GITHUB_PERSONAL_ACCESS_TOKEN` in the credential store or
 environment. Fine-grained PATs and classic PATs both work (Bearer auth).
 
 ## Tag filter
@@ -43,10 +40,3 @@ environment. Fine-grained PATs and classic PATs both work (Bearer auth).
 The full spec is 600+ operations. This pack filters to five high-value
 tags: `issues`, `pulls`, `repos`, `users`, `search`. Edit `apis/apis.yml`
 to add more (e.g. `actions`, `git`, `code-scanning`).
-
-## Coexistence
-
-This pack is a sibling to `pack-github` (MCP-backed), not a replacement.
-Both can be installed at once — they expose different namespaces
-(`gateway.gh` vs `gateway.github`). Pick one as the primary in your
-chat workflows; uninstall the other when you've decided.

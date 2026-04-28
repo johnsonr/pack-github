@@ -6,8 +6,7 @@
 # Instead we pin an explicit operationIds allowlist of the ~15 ops that
 # cover ~95% of common chat tasks. Add more here when a need arises.
 #
-# Auth via GITHUB_PERSONAL_ACCESS_TOKEN env var or credential store —
-# same convention as the MCP github pack so existing tokens work.
+# Auth via GITHUB_PERSONAL_ACCESS_TOKEN env var or credential store.
 - url: "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
   name: gh
   type: openapi

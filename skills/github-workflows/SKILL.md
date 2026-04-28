@@ -12,8 +12,7 @@ or `execute_python`. Never call them as top-level tools.
 
 | Namespace | Notes |
 |---|---|
-| `gateway.gh.*` | OpenAPI-typed. **Prefer this.** Methods are **camelCase** (`issuesListForRepo`, `usersGetByUsername`). TYPED API SURFACE has the exact shapes; full file at `/workspace/interfaces.ts`. |
-| `gateway.github.*` | MCP fallback. Untyped responses — only if `gh` isn't installed. |
+| `gateway.gh.*` | OpenAPI-typed. Methods are **camelCase** (`issuesListForRepo`, `usersGetByUsername`). TYPED API SURFACE has the exact shapes; full file at `/workspace/interfaces.ts`. |
 
 **Naming**: method is camelCase, args are snake_case (`per_page`, `issue_number`, `pull_number`, `q`).
 If a call returns `gateway.gh.foo is not a workspace tool`, the error lists every valid method — pick from it. Never re-send the same call.

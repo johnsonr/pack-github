@@ -1,20 +1,19 @@
-# github-openapi pack — usage examples
+# pack-github — usage examples
 
-The OpenAPI-typed GitHub gateway exposes namespace `gh` (vs the MCP-backed
-`github`). Methods are derived from the spec's operationId; the LLM sees
-full request and response types in `interfaces.ts`, including pagination
-wrappers and exact field names.
+The OpenAPI-typed GitHub gateway exposes namespace `gh`. Methods are
+derived from the spec's operationId; the LLM sees full request and
+response types in `interfaces.ts`, including pagination wrappers and
+exact field names.
 
 ## Why this pack exists
 
-The MCP-backed `github` namespace gives the LLM minimal type info — tool
-names and argument schemas, with response types marked `unknown`. That
-costs every chat turn an extra round-trip to discover the response shape:
+Untyped GitHub tooling exposes tool names and argument schemas with
+response types marked `unknown`. That costs every chat turn an extra
+round-trip to discover the response shape:
 
 - `.forEach` on `{issues, totalCount, pageInfo}` because the LLM thought
   it was a bare array
 - `i.user.login` vs `i.author.login` field-name guessing
-- `after: null` rejected by the MCP server (expected `string | undefined`)
 - `q` vs `query` argument-name confusion across endpoints
 
 With OpenAPI types the LLM reads the wrapper shape from `interfaces.ts`
