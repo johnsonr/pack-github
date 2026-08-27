@@ -1,0 +1,13 @@
+# Not every mention needs you. Judge, then decide whether to interrupt.
+#
+# This one earns its LLM call: "does this actually need me" is exactly the judgement a rule cannot
+# make and a person makes forty times a day.
+- id: gh-mention-triage
+  name: Only surface mentions that need me
+  description: Judges whether a GitHub mention needs an answer, and stays quiet when it does not
+  match:
+    signalType: GitHubMentioned
+  autonomous: false
+  spec:
+    kind: typescript
+    module: mention-triage.handler.ts
