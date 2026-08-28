@@ -1,0 +1,12 @@
+# One digest a day, not N pings.
+#
+# Cron rather than signal on purpose: "this has been sitting for three days" is not an event
+# anything emits. It is a question you have to go and ask, which is what a schedule is for.
+stepType: com.embabel.world.plan.spec.TypeScriptActionSpec
+name: stale-reviews
+description: Once each morning, the review requests that have gone quiet — grouped, not one ping each
+module: stale_reviews.ts
+schedule: "0 0 8 * * *"
+autonomous: false
+skills:
+  - github-workflows

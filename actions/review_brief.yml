@@ -1,0 +1,16 @@
+# Review requested → what this world already knows about it.
+#
+# `actions/` with the TypeScriptActionSpec FQN is the shape the world actually loads: FileSystemWorld
+# scans each realm's `actions/` and `goals/`, and nothing reads `handlers/`. The realm spec describes
+# that directory under a forward-looking section; until it is implemented, a binding placed there
+# ships and never runs.
+stepType: com.embabel.world.plan.spec.TypeScriptActionSpec
+name: review-brief
+description: A review request arrives with what this world knows about the author and the repo
+module: review_brief.ts
+signalType: GitHubReviewRequested
+autonomous: false
+# The realm's own account of how to call GitHub — search-then-get, safe pagination, the pitfalls.
+# Bundled so the model that WRITES and REFINES this follows it instead of re-deriving it.
+skills:
+  - github-workflows

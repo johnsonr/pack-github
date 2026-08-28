@@ -1,0 +1,12 @@
+# Not every mention needs you. Judge, then decide whether to interrupt.
+#
+# This one earns its LLM call: "does this actually need me" is exactly the judgement a rule cannot
+# make and a person makes forty times a day.
+stepType: com.embabel.world.plan.spec.TypeScriptActionSpec
+name: mention-triage
+description: Judges whether a GitHub mention needs an answer, and stays quiet when it does not
+module: mention_triage.ts
+signalType: GitHubMentioned
+autonomous: false
+skills:
+  - github-workflows
